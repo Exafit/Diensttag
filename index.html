@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#163f3a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Außenzeit">
+    <title>Außenzeit</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Auswärtstätigkeit</p>
+          <h1>Außenzeit</h1>
+        </div>
+        <button class="icon-button" id="todayShortcut" type="button" aria-label="Heute auswählen" title="Heute">
+          <span aria-hidden="true">⌖</span>
+        </button>
+      </header>
+
+      <main>
+        <section class="view active" id="view-home" aria-labelledby="homeTitle">
+          <div class="date-stage">
+            <div class="date-wheel" id="dateWheel" aria-label="Datum auswählen"></div>
+          </div>
+
+          <section class="entry-panel" aria-labelledby="homeTitle">
+            <div class="selected-date">
+              <p id="homeTitle">Ausgewählter Tag</p>
+              <strong id="selectedDateLabel"></strong>
+              <span id="selectedDateMeta"></span>
+            </div>
+
+            <div class="segmented" role="group" aria-label="Region">
+              <button type="button" class="selected" data-region="DOMESTIC">Inland</button>
+              <button type="button" data-region="FOREIGN">Ausland</button>
+            </div>
+
+            <div class="category-grid" role="group" aria-label="Kategorie">
+              <button type="button" class="category selected" data-category="OVER_8H">
+                <span>&gt;8h</span>
+                <small>Eintägig</small>
+              </button>
+              <button type="button" class="category" data-category="FULL_24H">
+                <span>24h</span>
+                <small>Zwischentag</small>
+              </button>
+              <button type="button" class="category" data-category="ARRIVAL_DAY">
+                <span>Anreise</span>
+                <small>Mit Übernachtung</small>
+              </button>
+              <button type="button" class="category" data-category="DEPARTURE_DAY">
+                <span>Abreise</span>
+                <small>Mit Übernachtung</small>
+              </button>
+            </div>
+
+            <div class="foreign-fields" id="foreignFields" hidden>
+              <label>
+                Land
+                <select id="countrySelect"></select>
+              </label>
+              <label>
+                Ort / Region
+                <input id="locationInput" type="text" autocomplete="off" placeholder="optional">
+              </label>
+            </div>
+
+            <label class="note-field">
+              Notiz
+              <textarea id="noteInput" rows="2" placeholder="z. B. Einsatz, Lehrgang, Dienstreise"></textarea>
+            </label>
+
+            <button class="primary-action" id="toggleEntry" type="button"></button>
+
+            <div class="quick-stats">
+              <div>
+                <span id="yearCount">0</span>
+                <small>Tage im Jahr</small>
+              </div>
+              <div>
+                <span id="yearAmount">0 €</span>
+                <small>Vorschau</small>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="view-overview" aria-labelledby="overviewTitle">
+          <div class="overview-head">
+            <button class="icon-button" id="prevYear" type="button" aria-label="Vorheriges Jahr" title="Vorheriges Jahr">‹</button>
+            <div>
+              <p class="eyebrow">Steuerübersicht</p>
+              <h2 id="overviewTitle"></h2>
+            </div>
+            <button class="icon-button" id="nextYear" type="button" aria-label="Nächstes Jahr" title="Nächstes Jahr">›</button>
+          </div>
+
+          <div class="total-band">
+            <span id="overviewCount">0</span>
+            <p>steuerlich relevante Tage</p>
+            <strong id="overviewAmount">0 €</strong>
+          </div>
+
+          <div class="summary-grid" id="summaryGrid"></div>
+
+          <div class="toolbar">
+            <button class="secondary-action" id="tripAssistant" type="button">Mehrtageseinsatz</button>
+            <button class="secondary-action" id="exportCsv" type="button">CSV exportieren</button>
+            <button class="secondary-action danger" id="selectionMode" type="button">Auswahl</button>
+          </div>
+
+          <div class="filter-row" id="filterRow" role="group" aria-label="Filter"></div>
+          <div class="entry-list" id="entryList"></div>
+        </section>
+
+        <section class="view" id="view-settings" aria-labelledby="settingsTitle">
+          <div class="settings-head">
+            <p class="eyebrow">Lokal und privat</p>
+            <h2 id="settingsTitle">Einstellungen</h2>
+          </div>
+
+          <div class="settings-group">
+            <label class="toggle-row">
+              <span>
+                <strong>Pauschalen anzeigen</strong>
+                <small>Zeigt eine unverbindliche Jahresvorschau.</small>
+              </span>
+              <input id="showAmounts" type="checkbox">
+            </label>
+          </div>
+
+          <div class="settings-group">
+            <button class="secondary-action" id="exportBackup" type="button">Backup exportieren</button>
+            <label class="file-action">
+              Backup importieren
+              <input id="importBackup" type="file" accept="application/json">
+            </label>
+          </div>
+
+          <aside class="tax-note">
+            <strong>Hinweis</strong>
+            <p>Die App dokumentiert Tage und berechnet nur eine Vorschau. Ob ein Eintrag steuerlich berücksichtigt werden kann, hängt unter anderem von erster Tätigkeitsstätte, Arbeitgebererstattungen, Mahlzeiten und den gültigen Regeln ab.</p>
+          </aside>
+        </section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Hauptnavigation">
+        <button type="button" class="active" data-view="home">
+          <span aria-hidden="true">＋</span>
+          Heute
+        </button>
+        <button type="button" data-view="overview">
+          <span aria-hidden="true">☷</span>
+          Übersicht
+        </button>
+        <button type="button" data-view="settings">
+          <span aria-hidden="true">⚙</span>
+          Einstellungen
+        </button>
+      </nav>
+    </div>
+
+    <dialog id="tripDialog">
+      <form method="dialog" class="dialog-card" id="tripForm">
+        <header>
+          <h3>Mehrtageseinsatz</h3>
+          <button class="icon-button" value="cancel" type="submit" aria-label="Schließen">×</button>
+        </header>
+        <label>
+          Titel
+          <input id="tripTitle" type="text" placeholder="optional">
+        </label>
+        <div class="two-col">
+          <label>
+            Start
+            <input id="tripStart" type="date" required>
+          </label>
+          <label>
+            Ende
+            <input id="tripEnd" type="date" required>
+          </label>
+        </div>
+        <div class="segmented dialog-region" role="group" aria-label="Region für Reise">
+          <button type="button" class="selected" data-trip-region="DOMESTIC">Inland</button>
+          <button type="button" data-trip-region="FOREIGN">Ausland</button>
+        </div>
+        <div id="tripForeignFields" hidden>
+          <label>
+            Land
+            <select id="tripCountry"></select>
+          </label>
+          <label>
+            Ort / Region
+            <input id="tripLocation" type="text" placeholder="optional">
+          </label>
+        </div>
+        <label>
+          Notiz
+          <textarea id="tripNote" rows="2" placeholder="optional"></textarea>
+        </label>
+        <menu>
+          <button class="secondary-action" value="cancel" type="submit">Abbrechen</button>
+          <button class="primary-inline" id="createTrip" value="default" type="submit">Tage erzeugen</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="confirmDialog">
+      <form method="dialog" class="dialog-card">
+        <header>
+          <h3 id="confirmTitle">Einträge löschen?</h3>
+        </header>
+        <p id="confirmText"></p>
+        <menu>
+          <button class="secondary-action" value="cancel" type="submit">Abbrechen</button>
+          <button class="primary-inline danger-bg" id="confirmDelete" value="delete" type="submit">Löschen</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js" defer></script>
+  </body>
+</html>

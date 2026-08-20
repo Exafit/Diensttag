@@ -1,0 +1,18 @@
+{
+  "name": "Außenzeit",
+  "short_name": "Außenzeit",
+  "description": "Offline-Tracker für steuerlich relevante Auswärtstätigkeitstage.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f6f8f4",
+  "theme_color": "#163f3a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
