@@ -2,6 +2,7 @@
 
 const STORAGE_KEY = "aussenzeit.entries.v1";
 const SETTINGS_KEY = "aussenzeit.settings.v1";
+const SAMSUNG_INSTALL_NOTICE_KEY = "aussenzeit.samsungInstallNoticeDismissed.v1";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const CATEGORY_LABELS = {
@@ -43,6 +44,8 @@ const state = {
   selectionMode: false,
   selectedIds: new Set(),
   tripRegion: "DOMESTIC",
+  deferredInstallPrompt: null,
+  samsungInstallNoticeDismissed: loadJson(SAMSUNG_INSTALL_NOTICE_KEY, false),
 };
 
 const els = {};
@@ -51,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
   cacheElements();
   hydrateCountries();
   bindEvents();
+  configureInstallExperience();
   renderAll();
   registerServiceWorker();
 });
@@ -58,6 +62,11 @@ document.addEventListener("DOMContentLoaded", () => {
 function cacheElements() {
   [
     "dateWheel",
+    "installApp",
+    "samsungInstallNotice",
+    "samsungInstallText",
+    "openInChrome",
+    "dismissInstallNotice",
     "todayShortcut",
     "selectedDateLabel",
     "selectedDateMeta",
@@ -122,6 +131,19 @@ function bindEvents() {
     renderAll();
     scrollSelectedIntoView();
   });
+  els.installApp.addEventListener("click", installApp);
+  els.openInChrome.addEventListener("click", openInChrome);
+  els.dismissInstallNotice.addEventListener("click", () => {
+    state.samsungInstallNoticeDismissed = true;
+    try {
+      localStorage.setItem(SAMSUNG_INSTALL_NOTICE_KEY, JSON.stringify(true));
+    } catch {
+      // The notice still closes for this session if browser storage is unavailable.
+    }
+    els.samsungInstallNotice.hidden = true;
+  });
+  window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  window.addEventListener("appinstalled", handleAppInstalled);
 
   document.querySelectorAll("[data-region]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -794,8 +816,91 @@ function showToast(message) {
   showToast.timer = setTimeout(() => els.toast.classList.remove("show"), 2200);
 }
 
+function handleBeforeInstallPrompt(event) {
+  event.preventDefault();
+
+  if (isSamsungInternet()) {
+    showSamsungInstallNotice();
+    return;
+  }
+
+  state.deferredInstallPrompt = event;
+  els.installApp.hidden = false;
+}
+
+async function installApp() {
+  if (isSamsungInternet()) {
+    openInChrome();
+    return;
+  }
+
+  if (!state.deferredInstallPrompt) {
+    showToast("Installation ist in diesem Browser gerade nicht verfügbar.");
+    return;
+  }
+
+  state.deferredInstallPrompt.prompt();
+  await state.deferredInstallPrompt.userChoice.catch(() => null);
+  state.deferredInstallPrompt = null;
+  els.installApp.hidden = true;
+}
+
+function handleAppInstalled() {
+  state.deferredInstallPrompt = null;
+  els.installApp.hidden = true;
+  showToast("Außenzeit wurde installiert.");
+}
+
+function configureInstallExperience() {
+  if (!isSamsungInternet() || isStandalone()) return;
+
+  els.installApp.hidden = true;
+  if (!state.samsungInstallNoticeDismissed) showSamsungInstallNotice();
+}
+
+function showSamsungInstallNotice() {
+  if (state.samsungInstallNoticeDismissed) return;
+
+  const secureHint = window.isSecureContext
+    ? "Öffne diese Seite in Chrome und installiere sie dort ohne diese Warnung."
+    : "Öffne die App über eine HTTPS-Adresse in Chrome; erst dann ist eine echte PWA-Installation möglich.";
+
+  els.samsungInstallText.textContent =
+    `Samsung Internet erzeugt derzeit ein App-Paket, das Play Protect als veraltet meldet. ${secureHint}`;
+  els.samsungInstallNotice.hidden = false;
+}
+
+function openInChrome() {
+  if (!/^https?:$/.test(location.protocol)) {
+    showToast("Diese Seite kann nicht direkt an Chrome übergeben werden.");
+    return;
+  }
+
+  const scheme = location.protocol.slice(0, -1);
+  const target = `${location.host}${location.pathname}${location.search}${location.hash}`;
+  const fallback = encodeURIComponent(location.href);
+  location.href = `intent://${target}#Intent;scheme=${scheme};package=com.android.chrome;S.browser_fallback_url=${fallback};end`;
+}
+
+function isSamsungInternet() {
+  return /SamsungBrowser/i.test(navigator.userAgent);
+}
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+}
+
 function registerServiceWorker() {
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let refreshing = false;
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController || refreshing) return;
+      refreshing = true;
+      location.reload();
+    });
+
+    navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
   }
 }

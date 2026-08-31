@@ -2,12 +2,29 @@
   "name": "Außenzeit",
   "short_name": "Außenzeit",
   "description": "Offline-Tracker für steuerlich relevante Auswärtstätigkeitstage.",
-  "start_url": ".",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#f6f8f4",
   "theme_color": "#163f3a",
   "orientation": "portrait",
+  "categories": ["productivity", "finance", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "assets/icon.svg",
       "sizes": "any",

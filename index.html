@@ -9,6 +9,7 @@
     <title>Außenzeit</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -21,7 +22,22 @@
         <button class="icon-button" id="todayShortcut" type="button" aria-label="Heute auswählen" title="Heute">
           <span aria-hidden="true">⌖</span>
         </button>
+        <button class="install-action" id="installApp" type="button" hidden>
+          <span aria-hidden="true">⇩</span>
+          <span class="install-label">Installieren</span>
+        </button>
       </header>
+
+      <aside class="browser-notice" id="samsungInstallNotice" hidden>
+        <div>
+          <strong>Installation mit Chrome empfohlen</strong>
+          <p id="samsungInstallText"></p>
+        </div>
+        <div class="browser-notice-actions">
+          <button class="secondary-action" id="openInChrome" type="button">In Chrome öffnen</button>
+          <button class="icon-button" id="dismissInstallNotice" type="button" aria-label="Hinweis schließen" title="Schließen">×</button>
+        </div>
+      </aside>
 
       <main>
         <section class="view active" id="view-home" aria-labelledby="homeTitle">
