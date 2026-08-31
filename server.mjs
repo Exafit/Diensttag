@@ -30,5 +30,5 @@ createServer((request, response) => {
   });
   createReadStream(filePath).pipe(response);
 }).listen(port, "127.0.0.1", () => {
-  console.log(`Außenzeit läuft auf http://127.0.0.1:${port}`);
+  console.log(`Diensttag läuft auf http://127.0.0.1:${port}`);
 });

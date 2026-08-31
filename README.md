@@ -1,4 +1,6 @@
-# Außenzeit
+# Diensttag
+
+**Arbeit, Fahrten und Auswärtseinsätze**
 
 Mobile-first PWA zum lokalen Erfassen von Arbeitstagen, Fahrten zur ersten Tätigkeitsstätte und steuerlich relevanten Auswärtstätigkeitstagen.
 

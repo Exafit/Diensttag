@@ -1,7 +1,7 @@
 {
-  "name": "Außenzeit",
-  "short_name": "Außenzeit",
-  "description": "Offline-Tracker für Arbeitstage, Fahrtage und steuerlich relevante Auswärtstätigkeiten.",
+  "name": "Diensttag",
+  "short_name": "Diensttag",
+  "description": "Arbeit, Fahrten und Auswärtseinsätze einfach und lokal erfassen.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

@@ -1185,7 +1185,7 @@ async function installApp() {
 function handleAppInstalled() {
   state.deferredInstallPrompt = null;
   els.installApp.hidden = true;
-  showToast("Außenzeit wurde installiert.");
+  showToast("Diensttag wurde installiert.");
 }
 
 function configureInstallExperience() {
