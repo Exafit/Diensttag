@@ -1,16 +1,18 @@
 # Außenzeit
 
-Mobile-first PWA zum lokalen Erfassen steuerlich relevanter Auswärtstätigkeitstage.
+Mobile-first PWA zum lokalen Erfassen von Arbeitstagen, Fahrten zur ersten Tätigkeitsstätte und steuerlich relevanten Auswärtstätigkeitstagen.
 
 ## Funktionen
 
 - Schnelles Markieren des aktuellen oder ausgewählten Tages
+- Arbeitstag-Status mit offener, positiver und negativer Antwort
+- Separate Erfassung tatsächlicher Fahrten zur ersten Tätigkeitsstätte
 - Kategorien: `>8h`, `24h`, `Anreisetag`, `Abreisetag`
 - Inland- und Auslandseinträge mit Pauschbetrags-Vorschau
 - Mehrtageseinsatz-Assistent
-- Jahresübersicht mit Kategorien, Summe und Filter
+- Jahresübersicht mit Arbeitstagen, Fahrttagen, Auswärtskategorien, Summe und Filtern
 - Auswahlmodus mit Bestätigungsdialog zum Löschen
-- CSV-Export pro Jahr
+- Zusammengeführter CSV-Export von Tagesstatus und Auswärtseinträgen pro Jahr
 - JSON-Backup und Import
 - Offline-fähig über Service Worker
 
@@ -24,6 +26,13 @@ Dann im Browser öffnen:
 
 ```text
 http://localhost:4173
+```
+
+## Tests
+
+```powershell
+node --check app.js
+node tests/app-data.test.mjs
 ```
 
 ## PWA installieren
@@ -44,4 +53,6 @@ Bis Samsung den Installationsdienst aktualisiert, die HTTPS-Adresse in Chrome ö
 
 ## Hinweis
 
-Die App dokumentiert Einträge und berechnet nur eine Vorschau. Ob ein Eintrag steuerlich angesetzt werden kann, hängt von den persönlichen Umständen und den jeweils gültigen steuerlichen Regeln ab.
+Die App dokumentiert Einträge und berechnet nur eine Vorschau. Für die Entfernungspauschale wird deshalb getrennt erfasst, ob die erste Tätigkeitsstätte an einem Arbeitstag tatsächlich aufgesucht wurde. Ob ein Eintrag steuerlich angesetzt werden kann, hängt von den persönlichen Umständen und den jeweils gültigen steuerlichen Regeln ab.
+
+Das fachliche Erweiterungskonzept steht in [`KONZEPT_ARBEITSTAGE.md`](KONZEPT_ARBEITSTAGE.md).

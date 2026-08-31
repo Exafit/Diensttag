@@ -1,4 +1,4 @@
-const CACHE_NAME = "aussenzeit-v3";
+const CACHE_NAME = "aussenzeit-v5";
 const APP_ASSETS = [
   "./",
   "./index.html",

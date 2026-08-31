@@ -180,6 +180,33 @@ h3 {
   font-size: 0.78rem;
 }
 
+.date-option .date-markers {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  min-height: 7px;
+}
+
+.date-markers i {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.workday-marker {
+  background: var(--blue);
+}
+
+.non-workday-marker {
+  background: #9aa5a1;
+}
+
+.absence-marker {
+  background: #d89b12;
+}
+
 .date-option.selected {
   background: var(--brand);
   border-color: var(--brand);
@@ -188,7 +215,7 @@ h3 {
 }
 
 .date-option.selected small,
-.date-option.selected span {
+.date-option.selected .month-label {
   color: rgba(255, 255, 255, 0.76);
 }
 
@@ -230,6 +257,66 @@ h3 {
   font-size: 0.9rem;
 }
 
+.daily-question,
+.absence-section {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.question-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.question-title > div {
+  min-width: 0;
+}
+
+.question-title strong,
+.question-title small {
+  display: block;
+}
+
+.question-title small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.step-index {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.absence-gate {
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--field);
+  color: var(--muted);
+}
+
+.absence-gate p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.absence-gate .secondary-action {
+  width: 100%;
+  margin-top: 10px;
+}
+
 .segmented {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -238,6 +325,10 @@ h3 {
   border-radius: var(--radius);
   background: var(--field);
   border: 1px solid var(--line);
+}
+
+.segmented.three-way {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .segmented button,
@@ -404,20 +495,22 @@ textarea {
 }
 
 .total-band {
+  display: grid;
+  gap: 16px;
   padding: 20px;
   border-radius: var(--radius);
   color: #fff;
   background: linear-gradient(135deg, var(--brand) 0%, #2e6549 100%);
 }
 
-.total-band span {
+.total-primary span {
   display: block;
   font-size: 3rem;
   font-weight: 900;
   line-height: 1;
 }
 
-.total-band p {
+.total-primary p {
   margin: 5px 0 12px;
   color: rgba(255, 255, 255, 0.76);
 }
@@ -426,11 +519,46 @@ textarea {
   font-size: 1.15rem;
 }
 
+.total-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.total-details div {
+  padding-left: 12px;
+  border-left: 2px solid rgba(255, 255, 255, 0.25);
+}
+
+.total-details strong,
+.total-details small {
+  display: block;
+}
+
+.total-details strong {
+  font-size: 1.65rem;
+}
+
+.total-details small {
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.76);
+  line-height: 1.25;
+}
+
+.total-amount {
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin: 12px 0;
+}
+
+.overview-tabs {
+  margin: 14px 0;
 }
 
 .summary-card strong {

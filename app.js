@@ -1,6 +1,7 @@
 "use strict";
 
 const STORAGE_KEY = "aussenzeit.entries.v1";
+const DAY_RECORDS_KEY = "aussenzeit.dayRecords.v1";
 const SETTINGS_KEY = "aussenzeit.settings.v1";
 const SAMSUNG_INSTALL_NOTICE_KEY = "aussenzeit.samsungInstallNoticeDismissed.v1";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,16 +35,20 @@ const FOREIGN_ALLOWANCES = {
 
 const state = {
   entries: loadJson(STORAGE_KEY, []),
+  dayRecords: normalizeDayRecords(loadJson(DAY_RECORDS_KEY, [])),
   settings: loadJson(SETTINGS_KEY, { showAmounts: true }),
   selectedDate: startOfDay(new Date()),
   selectedCategory: "OVER_8H",
   selectedRegion: "DOMESTIC",
   selectedCountry: "Frankreich",
   selectedFilter: "ALL",
+  selectedWorkFilter: "WORKDAY",
+  overviewMode: "WORK",
   overviewYear: new Date().getFullYear(),
   selectionMode: false,
   selectedIds: new Set(),
   tripRegion: "DOMESTIC",
+  absenceFormExpanded: false,
   deferredInstallPrompt: null,
   samsungInstallNoticeDismissed: loadJson(SAMSUNG_INSTALL_NOTICE_KEY, false),
 };
@@ -70,15 +75,24 @@ function cacheElements() {
     "todayShortcut",
     "selectedDateLabel",
     "selectedDateMeta",
+    "commuteQuestion",
+    "absenceGate",
+    "absenceGateText",
+    "openAbsenceForm",
+    "absenceForm",
     "foreignFields",
     "countrySelect",
     "locationInput",
     "noteInput",
     "toggleEntry",
     "yearCount",
+    "yearWorkdayCount",
+    "yearCommuteCount",
     "yearAmount",
     "overviewTitle",
     "overviewCount",
+    "overviewWorkdayCount",
+    "overviewCommuteCount",
     "overviewAmount",
     "summaryGrid",
     "entryList",
@@ -127,6 +141,7 @@ function bindEvents() {
 
   els.todayShortcut.addEventListener("click", () => {
     state.selectedDate = startOfDay(new Date());
+    state.absenceFormExpanded = false;
     loadFormFromSelectedDate();
     renderAll();
     scrollSelectedIntoView();
@@ -144,6 +159,23 @@ function bindEvents() {
   });
   window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   window.addEventListener("appinstalled", handleAppInstalled);
+
+  document.querySelectorAll("[data-workday-status]").forEach((button) => {
+    button.addEventListener("click", () => setWorkdayStatus(button.dataset.workdayStatus));
+  });
+
+  document.querySelectorAll("[data-commute-status]").forEach((button) => {
+    button.addEventListener("click", () => setCommuteStatus(button.dataset.commuteStatus));
+  });
+
+  els.openAbsenceForm.addEventListener("click", () => {
+    state.absenceFormExpanded = true;
+    renderHome();
+  });
+
+  document.querySelectorAll("[data-overview-mode]").forEach((button) => {
+    button.addEventListener("click", () => setOverviewMode(button.dataset.overviewMode));
+  });
 
   document.querySelectorAll("[data-region]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -206,12 +238,50 @@ function renderHome() {
   renderDateWheel();
   const dateKey = toIsoDate(state.selectedDate);
   const existing = findEntryForDate(dateKey);
+  const dayRecord = findDayRecordForDate(dateKey);
   const selectedLabel = formatDateLong(state.selectedDate);
+  const workdayStatus = dayRecord?.workdayStatus || "UNSET";
+  const commuteStatus = dayRecord?.primaryWorkplaceVisited === true
+    ? "YES"
+    : dayRecord?.primaryWorkplaceVisited === false
+      ? "NO"
+      : "UNSET";
+  const meta = [];
+
+  if (workdayStatus === "WORKDAY") {
+    meta.push("Arbeitstag");
+    meta.push(commuteStatus === "YES" ? "Fahrtag" : commuteStatus === "NO" ? "keine Fahrt zur Tätigkeitsstätte" : "Fahrtangabe offen");
+  } else if (workdayStatus === "NON_WORKDAY") {
+    meta.push("Kein Arbeitstag");
+  } else {
+    meta.push("Arbeitstag offen");
+  }
+
+  if (existing) meta.push(`${CATEGORY_LABELS[existing.category]} · ${regionLabel(existing)}`);
 
   els.selectedDateLabel.textContent = selectedLabel;
-  els.selectedDateMeta.textContent = existing
-    ? `${CATEGORY_LABELS[existing.category]} · ${regionLabel(existing)} · gespeichert`
-    : "Noch nicht gespeichert";
+  els.selectedDateMeta.textContent = meta.join(" · ");
+
+  document.querySelectorAll("[data-workday-status]").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.workdayStatus === workdayStatus);
+  });
+
+  document.querySelectorAll("[data-commute-status]").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.commuteStatus === commuteStatus);
+  });
+
+  els.commuteQuestion.hidden = workdayStatus !== "WORKDAY";
+
+  const showAbsenceForm = Boolean(existing) || workdayStatus === "WORKDAY" || state.absenceFormExpanded;
+  els.absenceForm.hidden = !showAbsenceForm;
+  els.absenceGate.hidden = showAbsenceForm;
+  els.openAbsenceForm.hidden = workdayStatus !== "NON_WORKDAY";
+
+  if (!showAbsenceForm) {
+    els.absenceGateText.textContent = workdayStatus === "NON_WORKDAY"
+      ? "Auch ohne regulären Arbeitstag kann ein Reise- oder 24h-Abwesenheitstag vorliegen."
+      : "Bitte zuerst angeben, ob dieser Tag ein Arbeitstag war.";
+  }
 
   document.querySelectorAll("[data-region]").forEach((button) => {
     button.classList.toggle("selected", button.dataset.region === state.selectedRegion);
@@ -227,6 +297,9 @@ function renderHome() {
   updateHomeAction();
 
   const yearEntries = getEntriesForYear(state.selectedDate.getFullYear());
+  const yearDayRecords = getDayRecordsForYear(state.selectedDate.getFullYear());
+  els.yearWorkdayCount.textContent = String(countWorkdays(yearDayRecords));
+  els.yearCommuteCount.textContent = String(countCommuteDays(yearDayRecords));
   els.yearCount.textContent = String(yearEntries.length);
   els.yearAmount.textContent = state.settings.showAmounts ? `${sumAllowances(yearEntries)} €` : "aus";
 }
@@ -242,12 +315,19 @@ function renderDateWheel() {
     .map((date) => {
       const iso = toIsoDate(date);
       const selected = iso === toIsoDate(state.selectedDate);
-      const marked = Boolean(findEntryForDate(iso));
+      const absence = Boolean(findEntryForDate(iso));
+      const dayRecord = findDayRecordForDate(iso);
+      const workday = dayRecord?.workdayStatus === "WORKDAY";
+      const nonWorkday = dayRecord?.workdayStatus === "NON_WORKDAY";
       return `
-        <button type="button" class="date-option${selected ? " selected" : ""}${marked ? " marked" : ""}" data-date="${iso}">
+        <button type="button" class="date-option${selected ? " selected" : ""}" data-date="${iso}">
           <small>${formatWeekdayShort(date)}</small>
           <strong>${date.getDate()}</strong>
-          <span>${formatMonthShort(date)}</span>
+          <span class="month-label">${formatMonthShort(date)}</span>
+          <span class="date-markers" aria-hidden="true">
+            ${workday ? '<i class="workday-marker"></i>' : nonWorkday ? '<i class="non-workday-marker"></i>' : ""}
+            ${absence ? '<i class="absence-marker"></i>' : ""}
+          </span>
         </button>
       `;
     })
@@ -256,6 +336,7 @@ function renderDateWheel() {
   els.dateWheel.querySelectorAll(".date-option").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedDate = parseIsoDate(button.dataset.date);
+      state.absenceFormExpanded = false;
       const existing = findEntryForDate(button.dataset.date);
       if (existing) {
         loadFormFromEntry(existing);
@@ -273,10 +354,19 @@ function renderDateWheel() {
 
 function renderOverview() {
   const entries = getEntriesForYear(state.overviewYear);
-  const visibleEntries = filterEntries(entries);
+  const dayRecords = getDayRecordsForYear(state.overviewYear);
+  const visibleRecords = state.overviewMode === "WORK"
+    ? filterDayRecords(dayRecords)
+    : filterEntries(entries);
   els.overviewTitle.textContent = String(state.overviewYear);
+  els.overviewWorkdayCount.textContent = String(countWorkdays(dayRecords));
+  els.overviewCommuteCount.textContent = String(countCommuteDays(dayRecords));
   els.overviewCount.textContent = String(entries.length);
   els.overviewAmount.textContent = state.settings.showAmounts ? `${sumAllowances(entries)} € Vorschau` : "Beträge ausgeblendet";
+
+  document.querySelectorAll("[data-overview-mode]").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.overviewMode === state.overviewMode);
+  });
 
   const counts = summarize(entries);
   els.summaryGrid.innerHTML = [
@@ -293,18 +383,19 @@ function renderOverview() {
     `)
     .join("");
 
-  renderFilters(entries);
+  renderFilters(entries, dayRecords);
 
-  if (!visibleEntries.length) {
+  if (!visibleRecords.length) {
     els.entryList.innerHTML = `<div class="empty-state">Keine Einträge für diese Auswahl.</div>`;
   } else {
-    els.entryList.innerHTML = visibleEntries
-      .map((entry) => renderEntryCard(entry))
+    els.entryList.innerHTML = visibleRecords
+      .map((record) => state.overviewMode === "WORK" ? renderDayRecordCard(record) : renderEntryCard(record))
       .join("");
   }
 
-  els.entryList.querySelectorAll("[data-entry-id]").forEach((card) => {
-    const id = card.dataset.entryId;
+  els.entryList.querySelectorAll("[data-record-id]").forEach((card) => {
+    const id = card.dataset.recordId;
+    const type = card.dataset.recordType;
     const checkbox = card.querySelector(".entry-check");
     const editButton = card.querySelector("[data-edit]");
 
@@ -314,7 +405,10 @@ function renderOverview() {
       updateSelectionButton();
     });
 
-    editButton.addEventListener("click", () => editEntry(id));
+    editButton.addEventListener("click", () => {
+      if (type === "day") editDayRecord(id);
+      else editEntry(id);
+    });
   });
 
   updateSelectionButton();
@@ -326,7 +420,7 @@ function renderEntryCard(entry) {
   const detail = `${CATEGORY_LABELS[entry.category]} · ${regionLabel(entry)}${allowance}`;
   const note = entry.note ? `<span>${escapeHtml(entry.note)}</span>` : "";
   return `
-    <article class="entry-card" data-entry-id="${entry.id}">
+    <article class="entry-card" data-record-id="${entry.id}" data-record-type="absence">
       <input class="entry-check" type="checkbox" ${state.selectionMode ? "" : "hidden"} ${state.selectedIds.has(entry.id) ? "checked" : ""} aria-label="Eintrag auswählen">
       <div class="entry-main">
         <strong>${formatWeekdayShort(date)}, ${formatDateNumeric(date)}</strong>
@@ -338,29 +432,63 @@ function renderEntryCard(entry) {
   `;
 }
 
-function renderFilters(entries) {
-  const filters = [
-    ["ALL", "Alle"],
-    ["DOMESTIC", "Inland"],
-    ["FOREIGN", "Ausland"],
-    ["OVER_8H", ">8h"],
-    ["FULL_24H", "24h"],
-    ["ARRIVAL_DAY", "Anreise"],
-    ["DEPARTURE_DAY", "Abreise"],
-  ];
+function renderDayRecordCard(record) {
+  const date = parseIsoDate(record.date);
+  const detail = record.workdayStatus === "NON_WORKDAY"
+    ? "Kein Arbeitstag"
+    : record.primaryWorkplaceVisited === true
+      ? "Arbeitstag · erste Tätigkeitsstätte aufgesucht"
+      : record.primaryWorkplaceVisited === false
+        ? "Arbeitstag · keine Fahrt zur ersten Tätigkeitsstätte"
+        : "Arbeitstag · Fahrtangabe offen";
+
+  return `
+    <article class="entry-card" data-record-id="${record.id}" data-record-type="day">
+      <input class="entry-check" type="checkbox" ${state.selectionMode ? "" : "hidden"} ${state.selectedIds.has(record.id) ? "checked" : ""} aria-label="Tagesstatus auswählen">
+      <div class="entry-main">
+        <strong>${formatWeekdayShort(date)}, ${formatDateNumeric(date)}</strong>
+        <small>${escapeHtml(detail)}</small>
+      </div>
+      <button type="button" data-edit aria-label="Bearbeiten" title="Bearbeiten">✎</button>
+    </article>
+  `;
+}
+
+function renderFilters(entries, dayRecords) {
+  const filters = state.overviewMode === "WORK"
+    ? [
+        ["ALL", "Alle"],
+        ["WORKDAY", "Arbeitstage"],
+        ["COMMUTE", "Fahrtage"],
+        ["COMMUTE_OPEN", "Fahrt offen"],
+        ["NON_WORKDAY", "Kein Arbeitstag"],
+      ]
+    : [
+        ["ALL", "Alle"],
+        ["DOMESTIC", "Inland"],
+        ["FOREIGN", "Ausland"],
+        ["OVER_8H", ">8h"],
+        ["FULL_24H", "24h"],
+        ["ARRIVAL_DAY", "Anreise"],
+        ["DEPARTURE_DAY", "Abreise"],
+      ];
 
   els.filterRow.innerHTML = filters
     .map(([key, label]) => {
-      const count = key === "ALL"
-        ? entries.length
-        : entries.filter((entry) => entry.regionType === key || entry.category === key).length;
-      return `<button type="button" class="${state.selectedFilter === key ? "selected" : ""}" data-filter="${key}">${label} ${count}</button>`;
+      const count = state.overviewMode === "WORK"
+        ? countDayRecordsForFilter(dayRecords, key)
+        : key === "ALL"
+          ? entries.length
+          : entries.filter((entry) => entry.regionType === key || entry.category === key).length;
+      const selectedFilter = state.overviewMode === "WORK" ? state.selectedWorkFilter : state.selectedFilter;
+      return `<button type="button" class="${selectedFilter === key ? "selected" : ""}" data-filter="${key}">${label} ${count}</button>`;
     })
     .join("");
 
   els.filterRow.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.selectedFilter = button.dataset.filter;
+      if (state.overviewMode === "WORK") state.selectedWorkFilter = button.dataset.filter;
+      else state.selectedFilter = button.dataset.filter;
       renderOverview();
     });
   });
@@ -385,6 +513,70 @@ function switchView(view) {
     button.classList.toggle("active", button.dataset.view === view);
   });
   if (view === "overview") renderOverview();
+}
+
+function setOverviewMode(mode) {
+  if (!['WORK', 'ABSENCE'].includes(mode) || state.overviewMode === mode) return;
+  state.overviewMode = mode;
+  state.selectionMode = false;
+  state.selectedIds.clear();
+  renderOverview();
+}
+
+function setWorkdayStatus(status) {
+  if (!["UNSET", "WORKDAY", "NON_WORKDAY"].includes(status)) return;
+  const date = toIsoDate(state.selectedDate);
+  const existing = findDayRecordForDate(date);
+
+  if (status === "UNSET") {
+    if (!existing) return;
+    state.dayRecords = state.dayRecords.filter((record) => record.id !== existing.id);
+    state.absenceFormExpanded = false;
+    saveDayRecords();
+    showToast("Arbeitstag-Angabe entfernt.");
+    renderAll();
+    return;
+  }
+
+  if (existing) {
+    const wasWorkday = existing.workdayStatus === "WORKDAY";
+    existing.workdayStatus = status;
+    if (status === "NON_WORKDAY" || !wasWorkday) existing.primaryWorkplaceVisited = null;
+    existing.updatedAt = new Date().toISOString();
+  } else {
+    state.dayRecords.push(createDayRecord(date, status));
+  }
+
+  state.absenceFormExpanded = false;
+  saveDayRecords();
+  showToast(status === "WORKDAY" ? "Arbeitstag gespeichert." : "Kein Arbeitstag gespeichert.");
+  renderAll();
+}
+
+function setCommuteStatus(status) {
+  if (!["UNSET", "YES", "NO"].includes(status)) return;
+  const date = toIsoDate(state.selectedDate);
+  const record = findDayRecordForDate(date);
+  if (!record || record.workdayStatus !== "WORKDAY") return;
+
+  record.primaryWorkplaceVisited = status === "YES" ? true : status === "NO" ? false : null;
+  record.updatedAt = new Date().toISOString();
+  saveDayRecords();
+  showToast(status === "YES" ? "Fahrtag gespeichert." : status === "NO" ? "Ohne Fahrt gespeichert." : "Fahrtangabe entfernt.");
+  renderAll();
+}
+
+function createDayRecord(date, workdayStatus) {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID ? crypto.randomUUID() : `day-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    date,
+    year: Number(date.slice(0, 4)),
+    workdayStatus,
+    primaryWorkplaceVisited: null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 function toggleSelectedEntry() {
@@ -495,7 +687,18 @@ function editEntry(id) {
   const entry = state.entries.find((item) => item.id === id);
   if (!entry) return;
   state.selectedDate = parseIsoDate(entry.date);
+  state.absenceFormExpanded = true;
   loadFormFromEntry(entry);
+  switchView("home");
+  renderAll();
+}
+
+function editDayRecord(id) {
+  const record = state.dayRecords.find((item) => item.id === id);
+  if (!record) return;
+  state.selectedDate = parseIsoDate(record.date);
+  state.absenceFormExpanded = false;
+  loadFormFromSelectedDate();
   switchView("home");
   renderAll();
 }
@@ -545,6 +748,8 @@ function createTripEntries() {
   const newDates = new Set(newEntries.map((entry) => entry.date));
   state.entries = state.entries.filter((entry) => !newDates.has(entry.date)).concat(newEntries);
   state.overviewYear = start.getFullYear();
+  state.overviewMode = "ABSENCE";
+  state.selectedFilter = "ALL";
   saveEntries();
   els.tripDialog.close();
   switchView("overview");
@@ -554,7 +759,8 @@ function createTripEntries() {
 
 function toggleSelectionMode() {
   if (state.selectionMode && state.selectedIds.size > 0) {
-    els.confirmText.textContent = `${state.selectedIds.size} ausgewählte Einträge aus ${state.overviewYear} wirklich löschen?`;
+    const typeLabel = state.overviewMode === "WORK" ? "Tagesangaben" : "Auswärtseinträge";
+    els.confirmText.textContent = `${state.selectedIds.size} ausgewählte ${typeLabel} aus ${state.overviewYear} wirklich löschen?`;
     els.confirmDialog.showModal();
     return;
   }
@@ -566,10 +772,15 @@ function toggleSelectionMode() {
 
 function deleteSelectedEntries() {
   const ids = new Set(state.selectedIds);
-  state.entries = state.entries.filter((entry) => !ids.has(entry.id));
+  if (state.overviewMode === "WORK") {
+    state.dayRecords = state.dayRecords.filter((record) => !ids.has(record.id));
+    saveDayRecords();
+  } else {
+    state.entries = state.entries.filter((entry) => !ids.has(entry.id));
+    saveEntries();
+  }
   state.selectedIds.clear();
   state.selectionMode = false;
-  saveEntries();
   showToast(`${ids.size} Einträge gelöscht.`);
   renderAll();
 }
@@ -585,6 +796,7 @@ function updateSelectionButton() {
 function changeYear(delta) {
   state.overviewYear += delta;
   state.selectedFilter = "ALL";
+  state.selectedWorkFilter = "WORKDAY";
   state.selectionMode = false;
   state.selectedIds.clear();
   renderOverview();
@@ -598,32 +810,73 @@ function updateSettings() {
 }
 
 function exportCurrentYearCsv() {
-  const entries = getEntriesForYear(state.overviewYear);
-  if (!entries.length) {
+  const csv = buildYearCsv(state.overviewYear);
+  if (!csv) {
     showToast("Keine Einträge für dieses Jahr.");
     return;
   }
 
-  const header = ["Datum", "Wochentag", "Jahr", "Kategorie", "Inland/Ausland", "Land", "Ort", "Pauschbetrag EUR", "Notiz"];
-  const rows = entries.map((entry) => [
-    entry.date,
-    formatWeekdayLong(parseIsoDate(entry.date)),
-    entry.year,
-    CATEGORY_LABELS[entry.category],
-    entry.regionType === "DOMESTIC" ? "Inland" : "Ausland",
-    entry.country,
-    entry.location,
-    entry.allowanceAmount || 0,
-    entry.note,
-  ]);
+  downloadFile(`aussenzeit_${state.overviewYear}.csv`, csv, "text/csv;charset=utf-8");
+}
 
-  downloadFile(`aussenzeit_${state.overviewYear}.csv`, toCsv([header, ...rows]), "text/csv;charset=utf-8");
+function buildYearCsv(year) {
+  const entries = getEntriesForYear(year);
+  const dayRecords = getDayRecordsForYear(year);
+  const dates = [...new Set([...entries.map((entry) => entry.date), ...dayRecords.map((record) => record.date)])].sort();
+
+  if (!dates.length) return "";
+
+  const header = [
+    "Datum",
+    "Wochentag",
+    "Jahr",
+    "Arbeitstag",
+    "Erste Tätigkeitsstätte aufgesucht",
+    "Auswärtskategorie",
+    "Inland/Ausland",
+    "Land",
+    "Ort",
+    "Pauschbetrag EUR",
+    "Notiz",
+  ];
+  const rows = dates.map((date) => {
+    const entry = entries.find((item) => item.date === date);
+    const dayRecord = dayRecords.find((item) => item.date === date);
+    const workday = dayRecord
+      ? dayRecord.workdayStatus === "WORKDAY" ? "Ja" : "Nein"
+      : "Nicht erfasst";
+    const workplaceVisited = !dayRecord || dayRecord.workdayStatus !== "WORKDAY"
+      ? "Nicht anwendbar"
+      : dayRecord.primaryWorkplaceVisited === true
+        ? "Ja"
+        : dayRecord.primaryWorkplaceVisited === false
+          ? "Nein"
+          : "Offen";
+
+    return [
+      date,
+      formatWeekdayLong(parseIsoDate(date)),
+      year,
+      workday,
+      workplaceVisited,
+      entry ? CATEGORY_LABELS[entry.category] : "",
+      entry ? entry.regionType === "DOMESTIC" ? "Inland" : "Ausland" : "",
+      entry?.country || "",
+      entry?.location || "",
+      entry ? entry.allowanceAmount || 0 : "",
+      entry?.note || "",
+    ];
+  });
+
+  return toCsv([header, ...rows]);
 }
 
 function exportBackup() {
   const payload = {
+    schemaVersion: 2,
     exportedAt: new Date().toISOString(),
     entries: state.entries,
+    dayRecords: state.dayRecords,
     settings: state.settings,
   };
   downloadFile("aussenzeit_backup.json", JSON.stringify(payload, null, 2), "application/json");
@@ -638,8 +891,10 @@ function importBackup(event) {
       const payload = JSON.parse(String(reader.result));
       if (!Array.isArray(payload.entries)) throw new Error("Invalid backup");
       state.entries = payload.entries;
+      state.dayRecords = normalizeDayRecords(payload.dayRecords);
       state.settings = { ...state.settings, ...(payload.settings || {}) };
       saveEntries();
+      saveDayRecords();
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
       showToast("Backup importiert.");
       renderAll();
@@ -689,13 +944,65 @@ function getEntriesForYear(year) {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+function getDayRecordsForYear(year) {
+  return state.dayRecords
+    .filter((record) => record.year === year)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function filterEntries(entries) {
   if (state.selectedFilter === "ALL") return entries;
   return entries.filter((entry) => entry.regionType === state.selectedFilter || entry.category === state.selectedFilter);
 }
 
+function filterDayRecords(records) {
+  switch (state.selectedWorkFilter) {
+    case "WORKDAY":
+      return records.filter((record) => record.workdayStatus === "WORKDAY");
+    case "COMMUTE":
+      return records.filter((record) => record.workdayStatus === "WORKDAY" && record.primaryWorkplaceVisited === true);
+    case "COMMUTE_OPEN":
+      return records.filter((record) => record.workdayStatus === "WORKDAY" && record.primaryWorkplaceVisited == null);
+    case "NON_WORKDAY":
+      return records.filter((record) => record.workdayStatus === "NON_WORKDAY");
+    default:
+      return records;
+  }
+}
+
+function countDayRecordsForFilter(records, filter) {
+  switch (filter) {
+    case "WORKDAY":
+      return records.filter((record) => record.workdayStatus === "WORKDAY").length;
+    case "COMMUTE":
+      return records.filter((record) => record.workdayStatus === "WORKDAY" && record.primaryWorkplaceVisited === true).length;
+    case "COMMUTE_OPEN":
+      return records.filter((record) => record.workdayStatus === "WORKDAY" && record.primaryWorkplaceVisited == null).length;
+    case "NON_WORKDAY":
+      return records.filter((record) => record.workdayStatus === "NON_WORKDAY").length;
+    default:
+      return records.length;
+  }
+}
+
 function findEntryForDate(date) {
   return state.entries.find((entry) => entry.date === date);
+}
+
+function findDayRecordForDate(date) {
+  return state.dayRecords.find((record) => record.date === date);
+}
+
+function countWorkdays(records) {
+  return new Set(records.filter((record) => record.workdayStatus === "WORKDAY").map((record) => record.date)).size;
+}
+
+function countCommuteDays(records) {
+  return new Set(
+    records
+      .filter((record) => record.workdayStatus === "WORKDAY" && record.primaryWorkplaceVisited === true)
+      .map((record) => record.date),
+  ).size;
 }
 
 function summarize(entries) {
@@ -718,6 +1025,10 @@ function saveEntries() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.entries));
 }
 
+function saveDayRecords() {
+  localStorage.setItem(DAY_RECORDS_KEY, JSON.stringify(state.dayRecords));
+}
+
 function loadJson(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -725,6 +1036,32 @@ function loadJson(key, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function normalizeDayRecords(records) {
+  if (!Array.isArray(records)) return [];
+  const byDate = new Map();
+
+  records.forEach((record) => {
+    if (!record || !/^\d{4}-\d{2}-\d{2}$/.test(record.date)) return;
+    if (!["WORKDAY", "NON_WORKDAY"].includes(record.workdayStatus)) return;
+    const workday = record.workdayStatus === "WORKDAY";
+    const primaryWorkplaceVisited = workday && typeof record.primaryWorkplaceVisited === "boolean"
+      ? record.primaryWorkplaceVisited
+      : null;
+    const now = new Date().toISOString();
+
+    byDate.set(record.date, {
+      ...record,
+      id: record.id || `day-${record.date}`,
+      year: Number(record.date.slice(0, 4)),
+      primaryWorkplaceVisited,
+      createdAt: record.createdAt || now,
+      updatedAt: record.updatedAt || now,
+    });
+  });
+
+  return [...byDate.values()];
 }
 
 function scrollSelectedIntoView() {

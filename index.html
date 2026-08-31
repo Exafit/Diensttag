@@ -52,56 +52,111 @@
               <span id="selectedDateMeta"></span>
             </div>
 
-            <div class="segmented" role="group" aria-label="Region">
-              <button type="button" class="selected" data-region="DOMESTIC">Inland</button>
-              <button type="button" data-region="FOREIGN">Ausland</button>
-            </div>
+            <section class="daily-question" aria-labelledby="workdayQuestionTitle">
+              <div class="question-title">
+                <span class="step-index">1</span>
+                <div>
+                  <strong id="workdayQuestionTitle">War das ein Arbeitstag?</strong>
+                  <small>Unabhängig von einer Auswärtstätigkeit.</small>
+                </div>
+              </div>
+              <div class="segmented three-way" role="group" aria-label="Arbeitstag">
+                <button type="button" data-workday-status="UNSET">Offen</button>
+                <button type="button" data-workday-status="WORKDAY">Ja</button>
+                <button type="button" data-workday-status="NON_WORKDAY">Nein</button>
+              </div>
+            </section>
 
-            <div class="category-grid" role="group" aria-label="Kategorie">
-              <button type="button" class="category selected" data-category="OVER_8H">
-                <span>&gt;8h</span>
-                <small>Eintägig</small>
-              </button>
-              <button type="button" class="category" data-category="FULL_24H">
-                <span>24h</span>
-                <small>Zwischentag</small>
-              </button>
-              <button type="button" class="category" data-category="ARRIVAL_DAY">
-                <span>Anreise</span>
-                <small>Mit Übernachtung</small>
-              </button>
-              <button type="button" class="category" data-category="DEPARTURE_DAY">
-                <span>Abreise</span>
-                <small>Mit Übernachtung</small>
-              </button>
-            </div>
+            <section class="daily-question" id="commuteQuestion" aria-labelledby="commuteQuestionTitle" hidden>
+              <div class="question-title">
+                <span class="step-index">2</span>
+                <div>
+                  <strong id="commuteQuestionTitle">Erste Tätigkeitsstätte aufgesucht?</strong>
+                  <small>Nur ein tatsächlicher Besuch zählt als Fahrtag.</small>
+                </div>
+              </div>
+              <div class="segmented three-way" role="group" aria-label="Erste Tätigkeitsstätte aufgesucht">
+                <button type="button" data-commute-status="UNSET">Offen</button>
+                <button type="button" data-commute-status="YES">Ja</button>
+                <button type="button" data-commute-status="NO">Nein</button>
+              </div>
+            </section>
 
-            <div class="foreign-fields" id="foreignFields" hidden>
-              <label>
-                Land
-                <select id="countrySelect"></select>
-              </label>
-              <label>
-                Ort / Region
-                <input id="locationInput" type="text" autocomplete="off" placeholder="optional">
-              </label>
-            </div>
+            <section class="absence-section" aria-labelledby="absenceQuestionTitle">
+              <div class="question-title">
+                <span class="step-index">3</span>
+                <div>
+                  <strong id="absenceQuestionTitle">Auswärtstätigkeit erfassen</strong>
+                  <small>&gt;8h Abwesenheit, 24h sowie An- oder Abreisetag.</small>
+                </div>
+              </div>
 
-            <label class="note-field">
-              Notiz
-              <textarea id="noteInput" rows="2" placeholder="z. B. Einsatz, Lehrgang, Dienstreise"></textarea>
-            </label>
+              <div class="absence-gate" id="absenceGate">
+                <p id="absenceGateText"></p>
+                <button class="secondary-action" id="openAbsenceForm" type="button" hidden>Abwesenheit trotzdem erfassen</button>
+              </div>
 
-            <button class="primary-action" id="toggleEntry" type="button"></button>
+              <div id="absenceForm" hidden>
+                <div class="segmented" role="group" aria-label="Region">
+                  <button type="button" class="selected" data-region="DOMESTIC">Inland</button>
+                  <button type="button" data-region="FOREIGN">Ausland</button>
+                </div>
+
+                <div class="category-grid" role="group" aria-label="Kategorie">
+                  <button type="button" class="category selected" data-category="OVER_8H">
+                    <span>&gt;8h</span>
+                    <small>Eintägig</small>
+                  </button>
+                  <button type="button" class="category" data-category="FULL_24H">
+                    <span>24h</span>
+                    <small>Zwischentag</small>
+                  </button>
+                  <button type="button" class="category" data-category="ARRIVAL_DAY">
+                    <span>Anreise</span>
+                    <small>Mit Übernachtung</small>
+                  </button>
+                  <button type="button" class="category" data-category="DEPARTURE_DAY">
+                    <span>Abreise</span>
+                    <small>Mit Übernachtung</small>
+                  </button>
+                </div>
+
+                <div class="foreign-fields" id="foreignFields" hidden>
+                  <label>
+                    Land
+                    <select id="countrySelect"></select>
+                  </label>
+                  <label>
+                    Ort / Region
+                    <input id="locationInput" type="text" autocomplete="off" placeholder="optional">
+                  </label>
+                </div>
+
+                <label class="note-field">
+                  Notiz
+                  <textarea id="noteInput" rows="2" placeholder="z. B. Einsatz, Lehrgang, Dienstreise"></textarea>
+                </label>
+
+                <button class="primary-action" id="toggleEntry" type="button"></button>
+              </div>
+            </section>
 
             <div class="quick-stats">
               <div>
+                <span id="yearWorkdayCount">0</span>
+                <small>Arbeitstage</small>
+              </div>
+              <div>
+                <span id="yearCommuteCount">0</span>
+                <small>Fahrtage</small>
+              </div>
+              <div>
                 <span id="yearCount">0</span>
-                <small>Tage im Jahr</small>
+                <small>Auswärtstage</small>
               </div>
               <div>
                 <span id="yearAmount">0 €</span>
-                <small>Vorschau</small>
+                <small>Pauschalen</small>
               </div>
             </div>
           </section>
@@ -118,12 +173,29 @@
           </div>
 
           <div class="total-band">
-            <span id="overviewCount">0</span>
-            <p>steuerlich relevante Tage</p>
-            <strong id="overviewAmount">0 €</strong>
+            <div class="total-primary">
+              <span id="overviewWorkdayCount">0</span>
+              <p>erfasste Arbeitstage</p>
+            </div>
+            <div class="total-details">
+              <div>
+                <strong id="overviewCommuteCount">0</strong>
+                <small>Fahrtage zur ersten Tätigkeitsstätte</small>
+              </div>
+              <div>
+                <strong id="overviewCount">0</strong>
+                <small>Auswärtstage</small>
+              </div>
+            </div>
+            <strong class="total-amount" id="overviewAmount">0 €</strong>
           </div>
 
           <div class="summary-grid" id="summaryGrid"></div>
+
+          <div class="segmented overview-tabs" role="group" aria-label="Listenansicht">
+            <button type="button" class="selected" data-overview-mode="WORK">Arbeit &amp; Fahrten</button>
+            <button type="button" data-overview-mode="ABSENCE">Auswärtstage</button>
+          </div>
 
           <div class="toolbar">
             <button class="secondary-action" id="tripAssistant" type="button">Mehrtageseinsatz</button>
@@ -161,7 +233,7 @@
 
           <aside class="tax-note">
             <strong>Hinweis</strong>
-            <p>Die App dokumentiert Tage und berechnet nur eine Vorschau. Ob ein Eintrag steuerlich berücksichtigt werden kann, hängt unter anderem von erster Tätigkeitsstätte, Arbeitgebererstattungen, Mahlzeiten und den gültigen Regeln ab.</p>
+            <p>Die App dokumentiert Tage und berechnet nur eine Vorschau. Arbeitstage und tatsächliche Besuche der ersten Tätigkeitsstätte werden getrennt gezählt. Ob ein Eintrag steuerlich berücksichtigt werden kann, hängt unter anderem von erster Tätigkeitsstätte, Arbeitgebererstattungen, Mahlzeiten und den gültigen Regeln ab.</p>
           </aside>
         </section>
       </main>
